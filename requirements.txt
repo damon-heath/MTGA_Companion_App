@@ -1,0 +1,6 @@
+# Runtime dependencies
+
+# Optional stack (kept explicit for future phases)
+PySide6>=6.7
+orjson>=3.10
+watchdog>=4.0
