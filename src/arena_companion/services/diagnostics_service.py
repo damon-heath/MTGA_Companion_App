@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from arena_companion import __version__
+from arena_companion.services.logging_health_service import detect_detailed_logging
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -13,9 +14,10 @@ def _connect(db_path: Path) -> sqlite3.Connection:
 
 
 class DiagnosticsService:
-    def __init__(self, db_path: Path, config_path: Path) -> None:
+    def __init__(self, db_path: Path, config_path: Path, current_log_path: Path | None = None) -> None:
         self.db_path = db_path
         self.config_path = config_path
+        self.current_log_path = current_log_path
 
     def parser_health(self) -> dict[str, int]:
         conn = _connect(self.db_path)
@@ -23,11 +25,14 @@ class DiagnosticsService:
             unknown_segments = conn.execute("SELECT COUNT(*) FROM raw_segments WHERE parse_status='unknown'").fetchone()[0]
             parser_errors = conn.execute("SELECT COUNT(*) FROM parser_errors").fetchone()[0]
             unclassified = conn.execute("SELECT COUNT(*) FROM raw_segments WHERE parse_status='unclassified'").fetchone()[0]
-            return {
+            payload = {
                 "unknown_segments": int(unknown_segments),
                 "parser_errors": int(parser_errors),
                 "unclassified_segments": int(unclassified),
             }
+            if self.current_log_path is not None:
+                payload["detailed_logging_enabled"] = int(detect_detailed_logging(self.current_log_path))
+            return payload
         finally:
             conn.close()
 
