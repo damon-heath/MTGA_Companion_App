@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from arena_companion.parsers.base import ParserResult, SegmentParser
 from arena_companion.parsers.decks import DeckParser
+from arena_companion.parsers.gre import GreParser
 from arena_companion.parsers.inventory import InventoryParser
 from arena_companion.parsers.matches import MatchParser
+from arena_companion.parsers.observed_cards import ObservedCardParser
+from arena_companion.parsers.ranks import RankParser
 from arena_companion.parsers.results import ResultParser
 
 
@@ -14,6 +17,9 @@ class ParserRegistry:
             DeckParser(),
             ResultParser(),
             InventoryParser(),
+            GreParser(),
+            ObservedCardParser(),
+            RankParser(),
         ]
 
     def classify_and_parse(self, raw_text: str) -> ParserResult:

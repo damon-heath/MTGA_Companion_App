@@ -147,6 +147,99 @@ def _insert_inventory_snapshot(conn: sqlite3.Connection, payload: dict[str, Any]
     )
 
 
+def _latest_game_id(conn: sqlite3.Connection) -> int | None:
+    row = conn.execute("SELECT id FROM games ORDER BY id DESC LIMIT 1").fetchone()
+    return int(row[0]) if row else None
+
+
+def _insert_turn_event(conn: sqlite3.Connection, payload: dict[str, Any], raw_segment_id: int) -> None:
+    game_id = _latest_game_id(conn)
+    if game_id is None:
+        return
+
+    conn.execute(
+        """
+        INSERT INTO turn_events(
+            game_id, turn_number, event_type, arena_card_id, zone_from, zone_to, payload_json, raw_segment_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            game_id,
+            payload.get("turn_number"),
+            payload.get("event_type"),
+            payload.get("arena_card_id"),
+            payload.get("zone_from"),
+            payload.get("zone_to"),
+            str(payload),
+            raw_segment_id,
+        ),
+    )
+
+
+def _upsert_observed_card(conn: sqlite3.Connection, payload: dict[str, Any]) -> None:
+    game_id = _latest_game_id(conn)
+    if game_id is None:
+        return
+
+    participant_id = _upsert_participant(conn, payload["opponent_name"], "opponent")
+    row = conn.execute(
+        """
+        SELECT id, first_seen_turn, last_seen_turn, times_seen
+        FROM opponent_observed_cards
+        WHERE game_id=? AND participant_id=? AND arena_card_id=?
+        """,
+        (game_id, participant_id, payload["arena_card_id"]),
+    ).fetchone()
+
+    if row:
+        obs_id = int(row[0])
+        first_seen = min(int(row[1] or payload["turn"]), payload["turn"])
+        last_seen = max(int(row[2] or payload["turn"]), payload["turn"])
+        times_seen = int(row[3] or 0) + 1
+        conn.execute(
+            """
+            UPDATE opponent_observed_cards
+            SET first_seen_turn=?, last_seen_turn=?, times_seen=?
+            WHERE id=?
+            """,
+            (first_seen, last_seen, times_seen, obs_id),
+        )
+        return
+
+    conn.execute(
+        """
+        INSERT INTO opponent_observed_cards(
+            game_id, participant_id, arena_card_id, first_seen_turn, last_seen_turn, times_seen, observation_type
+        ) VALUES (?, ?, ?, ?, ?, 1, 'seen')
+        """,
+        (
+            game_id,
+            participant_id,
+            payload["arena_card_id"],
+            payload["turn"],
+            payload["turn"],
+        ),
+    )
+
+
+def _insert_rank_snapshot(conn: sqlite3.Connection, payload: dict[str, Any]) -> None:
+    participant_id = _upsert_participant(conn, payload["player"], "player")
+    conn.execute(
+        """
+        INSERT INTO participant_rank_snapshots(
+            participant_id, captured_at, rank_class, rank_tier, rank_step, limited_or_constructed
+        ) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?)
+        """,
+        (
+            participant_id,
+            payload.get("rank_class"),
+            payload.get("rank_tier"),
+            payload.get("rank_step"),
+            payload.get("mode"),
+        ),
+    )
+
+
 def apply_parser_result(db_path: Path, raw_segment_id: int, result: ParserResult) -> None:
     conn = _connect(db_path)
     try:
@@ -161,6 +254,12 @@ def apply_parser_result(db_path: Path, raw_segment_id: int, result: ParserResult
             _insert_result(conn, payload, raw_segment_id)
         elif family == "inventory":
             _insert_inventory_snapshot(conn, payload, raw_segment_id)
+        elif family == "gre_event":
+            _insert_turn_event(conn, payload, raw_segment_id)
+        elif family == "observed_card":
+            _upsert_observed_card(conn, payload)
+        elif family == "rank_snapshot":
+            _insert_rank_snapshot(conn, payload)
 
         parse_status = "parsed" if family != "unknown" else "unknown"
         conn.execute(
