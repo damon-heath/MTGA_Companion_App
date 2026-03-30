@@ -19,7 +19,11 @@ function Wait-ReleaseAssets {
       $payload = gh release view $Tag --repo $RepoName --json assets,url,tagName | ConvertFrom-Json
       if ($payload -and $payload.assets) {
         $assetNames = @($payload.assets | ForEach-Object { $_.name })
-        if ($assetNames -contains "checksums.txt" -and $assetNames -contains "ArenaCompanionSetup.exe") {
+        if (
+          $assetNames -contains "checksums.txt" -and
+          $assetNames -contains "ArenaCompanionSetup.exe" -and
+          $assetNames -contains "ArenaCompanion-onefolder.zip"
+        ) {
           return $payload
         }
       }
@@ -34,6 +38,69 @@ function Wait-ReleaseAssets {
   }
 
   throw "Timed out waiting for release assets for tag '$Tag' in repo '$RepoName'."
+}
+
+function Invoke-FirstRunValidation {
+  param(
+    [Parameter(Mandatory = $true)][string]$ExePath,
+    [Parameter(Mandatory = $true)][string]$AppDataRoot,
+    [Parameter(Mandatory = $true)][string]$OutputDir,
+    [Parameter(Mandatory = $true)][string]$Prefix
+  )
+
+  $result = [ordered]@{
+    executable_found = $false
+    launch_exit_code = $null
+    launch_ok = $false
+    created_appdata = $false
+    created_db = $false
+    created_config = $false
+    run_ok = $false
+    output_path = $null
+    paths_path = $null
+  }
+
+  if (-not (Test-Path -LiteralPath $ExePath -PathType Leaf)) {
+    return $result
+  }
+
+  $result.executable_found = $true
+  New-Item -ItemType Directory -Path $AppDataRoot -Force | Out-Null
+
+  $outputPath = Join-Path $OutputDir "${Prefix}_first_run_output.txt"
+  $pathsPath = Join-Path $OutputDir "${Prefix}_first_run_paths.txt"
+  $result.output_path = $outputPath
+  $result.paths_path = $pathsPath
+
+  $exitCode = 1
+  $previousAppData = $env:APPDATA
+  try {
+    $env:APPDATA = (Resolve-Path $AppDataRoot).Path
+    & $ExePath --print-paths *>&1 | Set-Content -LiteralPath $outputPath -Encoding utf8
+    $exitCode = $LASTEXITCODE
+  }
+  finally {
+    $env:APPDATA = $previousAppData
+  }
+
+  $appRoot = Join-Path $AppDataRoot "ArenaCompanion"
+  $dbPath = Join-Path $appRoot "arena_companion.db"
+  $configPath = Join-Path $appRoot "config.json"
+
+  $result.launch_exit_code = $exitCode
+  $result.launch_ok = ($exitCode -eq 0)
+  $result.created_appdata = Test-Path -LiteralPath $appRoot
+  $result.created_db = Test-Path -LiteralPath $dbPath
+  $result.created_config = Test-Path -LiteralPath $configPath
+  $result.run_ok = $result.launch_ok -and $result.created_appdata -and $result.created_db -and $result.created_config
+
+  @(
+    "appdata_root=$appRoot"
+    "db_path=$dbPath"
+    "config_path=$configPath"
+  ) | Set-Content -LiteralPath $pathsPath -Encoding utf8
+
+  return $result
 }
 
 $safeTag = $ReleaseTag.Trim()
@@ -90,6 +157,11 @@ if (-not (Test-Path $installerPath)) {
   throw "Installer asset not found: $installerPath"
 }
 
+$oneFolderZipPath = Join-Path $outputDir "ArenaCompanion-onefolder.zip"
+if (-not (Test-Path $oneFolderZipPath)) {
+  throw "One-folder ZIP asset not found: $oneFolderZipPath"
+}
+
 $installRoot = Join-Path $outputDir "install-root"
 New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
 
@@ -106,33 +178,11 @@ $installProc = Start-Process -FilePath $installerPath -ArgumentList $installArgs
 $installOk = ($installProc.ExitCode -eq 0)
 
 $appExe = Join-Path $installRoot "ArenaCompanion.exe"
-$appDataRoot = Join-Path $outputDir "AppDataRoaming"
-New-Item -ItemType Directory -Path $appDataRoot -Force | Out-Null
-
-$firstRunOutputPath = Join-Path $outputDir "first_run_output.txt"
-$firstRunPathsPath = Join-Path $outputDir "first_run_paths.txt"
-$firstRunAppData = $false
-$firstRunDb = $false
-$firstRunConfig = $false
-if (Test-Path $appExe) {
-  $previousAppData = $env:APPDATA
-  $env:APPDATA = (Resolve-Path $appDataRoot).Path
-  & $appExe --print-paths *>&1 | Set-Content -LiteralPath $firstRunOutputPath -Encoding utf8
-  $env:APPDATA = $previousAppData
-
-  $appRoot = Join-Path $appDataRoot "ArenaCompanion"
-  $dbPath = Join-Path $appRoot "arena_companion.db"
-  $configPath = Join-Path $appRoot "config.json"
-  $firstRunAppData = Test-Path $appRoot
-  $firstRunDb = Test-Path $dbPath
-  $firstRunConfig = Test-Path $configPath
-
-  @(
-    "appdata_root=$appRoot"
-    "db_path=$dbPath"
-    "config_path=$configPath"
-  ) | Set-Content -LiteralPath $firstRunPathsPath -Encoding utf8
-}
+$installerFirstRun = Invoke-FirstRunValidation `
+  -ExePath $appExe `
+  -AppDataRoot (Join-Path $outputDir "AppDataRoaming-installer") `
+  -OutputDir $outputDir `
+  -Prefix "installer"
 
 $uninstallExe = Join-Path $installRoot "unins000.exe"
 $uninstallOk = $false
@@ -148,16 +198,50 @@ if (Test-Path $uninstallExe) {
 
 $postUninstallRemovedBinary = -not (Test-Path $appExe)
 
+$oneFolderExtractDir = Join-Path $outputDir "onefolder-extracted"
+if (Test-Path -LiteralPath $oneFolderExtractDir) {
+  Remove-Item -LiteralPath $oneFolderExtractDir -Recurse -Force
+}
+
+$oneFolderExtracted = $false
+$oneFolderExtractionError = $null
+try {
+  Expand-Archive -LiteralPath $oneFolderZipPath -DestinationPath $oneFolderExtractDir -Force
+  $oneFolderExtracted = $true
+}
+catch {
+  $oneFolderExtractionError = $_.Exception.Message
+}
+
+$oneFolderExe = Join-Path $oneFolderExtractDir "ArenaCompanion.exe"
+$oneFolderFirstRun = Invoke-FirstRunValidation `
+  -ExePath $oneFolderExe `
+  -AppDataRoot (Join-Path $outputDir "AppDataRoaming-onefolder") `
+  -OutputDir $outputDir `
+  -Prefix "onefolder"
+
+$installerAllGood = $installOk -and $installerFirstRun.run_ok -and $uninstallOk -and $postUninstallRemovedBinary
+$oneFolderAllGood = $oneFolderExtracted -and $oneFolderFirstRun.run_ok
+
 $summary = [ordered]@{
   release = $safeTag
   release_url = $releasePayload.url
   checksums_verified = $checksumsVerified
-  install_ok = $installOk
-  uninstall_ok = $uninstallOk
-  post_uninstall_removed_binary = $postUninstallRemovedBinary
-  first_run_created_appdata = $firstRunAppData
-  first_run_created_db = $firstRunDb
-  first_run_created_config = $firstRunConfig
+  installer = [ordered]@{
+    install_ok = $installOk
+    uninstall_ok = $uninstallOk
+    post_uninstall_removed_binary = $postUninstallRemovedBinary
+    all_good = $installerAllGood
+    first_run = $installerFirstRun
+  }
+  onefolder = [ordered]@{
+    zip_path = $oneFolderZipPath
+    extraction_ok = $oneFolderExtracted
+    extraction_error = $oneFolderExtractionError
+    executable_path = $oneFolderExe
+    all_good = $oneFolderAllGood
+    first_run = $oneFolderFirstRun
+  }
   verified_assets = $verifiedAssets
   artifacts_dir = (Resolve-Path $outputDir).Path
 }
@@ -165,7 +249,21 @@ $summary = [ordered]@{
 $summaryPath = Join-Path $outputDir "smoke_summary.json"
 $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding utf8
 
-$allGood = $checksumsVerified -and $installOk -and $uninstallOk -and $postUninstallRemovedBinary -and $firstRunAppData -and $firstRunDb -and $firstRunConfig
+$installerStatus = if ($installerAllGood) { "PASS" } else { "FAIL" }
+$oneFolderStatus = if ($oneFolderAllGood) { "PASS" } else { "FAIL" }
+$checksumStatus = if ($checksumsVerified) { "PASS" } else { "FAIL" }
+if ($env:GITHUB_STEP_SUMMARY) {
+  @"
+### Post-Release Smoke
+- release: $safeTag
+- checksums: $checksumStatus
+- installer path: $installerStatus
+- one-folder path: $oneFolderStatus
+- summary json: $summaryPath
+"@ | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+}
+
+$allGood = $checksumsVerified -and $installerAllGood -and $oneFolderAllGood
 if (-not $allGood) {
   Write-Host "Post-release smoke validation FAILED."
   $summary | ConvertTo-Json -Depth 6 | Write-Host
