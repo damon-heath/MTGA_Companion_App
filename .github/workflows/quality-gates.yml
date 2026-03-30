@@ -110,13 +110,12 @@ jobs:
           $lines = Get-Content -LiteralPath $checksumsPath
           foreach ($line in $lines) {
             if (-not $line.Trim()) { continue }
-            $parts = $line -split "\\s{2,}", 2
-            if ($parts.Count -ne 2) {
+            if ($line -notmatch '^(?<hash>[A-Fa-f0-9]{64})\s+(?<name>.+)$') {
               throw "Invalid checksum line format: $line"
             }
 
-            $expected = $parts[0].Trim().ToLower()
-            $name = $parts[1].Trim()
+            $expected = $Matches.hash.ToLower()
+            $name = $Matches.name.Trim()
             $path = Join-Path $artifactDir $name
             if (-not (Test-Path $path)) {
               throw "Missing artifact referenced in checksums: $name"
