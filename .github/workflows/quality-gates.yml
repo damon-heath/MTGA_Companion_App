@@ -72,10 +72,19 @@ jobs:
         if: ${{ env.WINDOWS_SIGN_CERT_PFX_BASE64 != '' && env.WINDOWS_SIGN_CERT_PASSWORD != '' }}
         run: |
           $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+          $cerPath = Join-Path $env:RUNNER_TEMP "codesign.cer"
           [System.IO.File]::WriteAllBytes(
             $pfxPath,
             [System.Convert]::FromBase64String($env:WINDOWS_SIGN_CERT_PFX_BASE64)
           )
+          $securePassword = ConvertTo-SecureString $env:WINDOWS_SIGN_CERT_PASSWORD -AsPlainText -Force
+          $certImported = Import-PfxCertificate -FilePath $pfxPath -CertStoreLocation Cert:\CurrentUser\My -Password $securePassword
+          if ($certImported -and $certImported.Count -gt 0) {
+            $leaf = $certImported[0]
+            Export-Certificate -Cert $leaf -FilePath $cerPath -Type CERT | Out-Null
+            Import-Certificate -FilePath $cerPath -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+            Import-Certificate -FilePath $cerPath -CertStoreLocation Cert:\CurrentUser\TrustedPublisher | Out-Null
+          }
           & "scripts/sign_artifacts.ps1" `
             -ArtifactPaths @(
               "dist\\ArenaCompanion\\ArenaCompanion.exe",
