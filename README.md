@@ -21,3 +21,13 @@ set PYTHONPATH=src && python -m arena_companion.main --print-paths
 - App bootstrap and `%APPDATA%\\ArenaCompanion` lifecycle.
 - SQLite migration runner with initial 1.0.0 schema.
 - Bundled offline `cards.sqlite` seed database.
+
+## CI Support Matrix
+
+- `Quality Gates` test matrix:
+  - `ubuntu-latest` + Python `3.12`
+  - `ubuntu-latest` + Python `3.13`
+- `Regression Suite`:
+  - `ubuntu-latest` + Python `3.13`
+- `release_tag_build` (tagged releases):
+  - `windows-latest` + Python `3.13`
