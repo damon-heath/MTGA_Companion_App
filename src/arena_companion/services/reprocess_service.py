@@ -24,6 +24,8 @@ class ReprocessService:
             conn.execute("DELETE FROM opponent_observed_cards")
             conn.execute("DELETE FROM participant_rank_snapshots")
             conn.execute("DELETE FROM inventory_snapshots")
+            conn.execute("DELETE FROM collection_cards")
+            conn.execute("DELETE FROM collection_snapshots")
             conn.execute("DELETE FROM games")
             conn.execute("DELETE FROM matches")
             conn.execute("DELETE FROM deck_cards")

@@ -21,7 +21,11 @@ class ReprocessServiceTests(unittest.TestCase):
             db_path = Path(tmp) / "arena_companion.db"
             apply_migrations(db_path)
 
-            lines = ["Event.MatchCreated matchId=m1 opponentName=Alice\n", "Event.GameEnded result=Win reason=Concede\n"]
+            lines = [
+                "Event.MatchCreated matchId=m1 opponentName=Alice\n",
+                'Collection.OwnedCardsSnapshot {"sourceKind":"owned_cards_v2","cards":{"67330":4}}\n',
+                "Event.GameEnded result=Win reason=Concede\n",
+            ]
             insert_raw_segments(db_path, frame_lines(Path("Player.log"), lines))
             ParserPipeline(db_path).process_unclassified()
 
@@ -30,14 +34,16 @@ class ReprocessServiceTests(unittest.TestCase):
             self.assertGreaterEqual(reset_count, 2)
 
             reprocessed = service.reprocess()
-            self.assertEqual(reprocessed, 2)
+            self.assertEqual(reprocessed, 3)
 
             conn = sqlite3.connect(db_path)
             try:
                 match_count = conn.execute("SELECT COUNT(*) FROM matches").fetchone()[0]
+                collection_count = conn.execute("SELECT COUNT(*) FROM collection_snapshots").fetchone()[0]
             finally:
                 conn.close()
             self.assertEqual(match_count, 1)
+            self.assertEqual(collection_count, 1)
 
 
 if __name__ == "__main__":

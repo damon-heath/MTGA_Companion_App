@@ -13,7 +13,7 @@ Track observed MTGA log message families and their planned parser ownership.
 | Results | `Event.MatchEnded` / `Event.GameEnded` | `parsers.results` | Planned | Match/game outcomes and reasons. |
 | Rank | `RankUpdated` | `parsers.ranks` | Planned | Constructed and limited snapshots. |
 | Inventory/Profile | `GetPlayerInventory` payload | `parsers.inventory` | Planned | Gold/gems/wildcards snapshots. |
-| Collection (conditional) | owned-card payloads | `parsers.collection` | Pending spike | Enabled only if #13 passes. |
+| Collection | `Collection.OwnedCardsSnapshot` payloads | `parsers.collection` | Implemented (v1.1.0) | Supports map/list owned-card variants; legacy summary-only payloads remain non-authoritative. |
 | Unknown | Any unclassified segment | fallback registry path | Always retained | Stored for drift diagnostics. |
 
 ## Drift Policy

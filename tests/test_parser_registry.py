@@ -29,6 +29,14 @@ class ParserRegistryTests(unittest.TestCase):
         result = registry.classify_and_parse("totally_unknown_payload")
         self.assertEqual(result.family, "unknown")
 
+    def test_classifies_collection_snapshot_family(self) -> None:
+        registry = ParserRegistry()
+        result = registry.classify_and_parse(
+            'Collection.OwnedCardsSnapshot {"sourceKind":"owned_cards_v2","clientBuild":"2026.3.1","cards":{"67330":4,"67341":2}}'
+        )
+        self.assertEqual(result.family, "collection_snapshot")
+        self.assertEqual(result.payload["unique_cards"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

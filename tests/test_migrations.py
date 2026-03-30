@@ -20,6 +20,10 @@ class MigrationTests(unittest.TestCase):
             conn = sqlite3.connect(db_path)
             try:
                 tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+                collection_columns = {
+                    row[1]
+                    for row in conn.execute("PRAGMA table_info(collection_snapshots)").fetchall()
+                }
             finally:
                 conn.close()
 
@@ -42,6 +46,9 @@ class MigrationTests(unittest.TestCase):
                 "collection_cards",
             }
             self.assertTrue(expected.issubset(tables))
+            self.assertIn("snapshot_fingerprint", collection_columns)
+            self.assertIn("parser_schema_version", collection_columns)
+            self.assertIn("client_build", collection_columns)
 
 
 if __name__ == "__main__":

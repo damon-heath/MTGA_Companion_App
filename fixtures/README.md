@@ -29,6 +29,7 @@ Keep `fixtures/manifest.json` updated with scenario metadata and coverage tags.
 ## Covered Scenarios
 - `launch`: `launch_session_001`
 - `collection_navigation`: `collection_navigation_001`
+- `collection_ownedcards`: `collection_ownedcards_build_2026_03_27`, `collection_ownedcards_build_2026_03_30`
 - `deck_edit`: `deck_edit_001`
 - `rewards`: `rewards_001` (historical client sample)
 - `match_flow`: `match_flow_001`

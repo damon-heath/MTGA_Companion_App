@@ -157,6 +157,11 @@ CREATE TABLE IF NOT EXISTS collection_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     captured_at TEXT NOT NULL,
     source_kind TEXT,
+    snapshot_fingerprint TEXT,
+    parser_schema_version TEXT,
+    client_build TEXT,
+    unique_cards INTEGER,
+    total_cards INTEGER,
     raw_segment_id INTEGER,
     FOREIGN KEY(raw_segment_id) REFERENCES raw_segments(id)
 );
@@ -176,6 +181,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_raw_segments_source ON raw_segments(source
 CREATE INDEX IF NOT EXISTS idx_participants_screen_name ON participants(screen_name);
 CREATE INDEX IF NOT EXISTS idx_observed_cards_participant_card ON opponent_observed_cards(participant_id, arena_card_id);
 CREATE INDEX IF NOT EXISTS idx_turn_events_game_turn ON turn_events(game_id, turn_number);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_collection_snapshots_fingerprint ON collection_snapshots(snapshot_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_collection_snapshots_captured_at ON collection_snapshots(captured_at);
 
 COMMIT;
 

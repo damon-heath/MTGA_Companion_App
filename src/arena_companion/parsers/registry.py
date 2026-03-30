@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from arena_companion.parsers.base import ParserResult, SegmentParser
+from arena_companion.parsers.collection import CollectionParser
 from arena_companion.parsers.decks import DeckParser
 from arena_companion.parsers.gre import GreParser
 from arena_companion.parsers.inventory import InventoryParser
@@ -17,6 +18,7 @@ class ParserRegistry:
             DeckParser(),
             ResultParser(),
             InventoryParser(),
+            CollectionParser(),
             GreParser(),
             ObservedCardParser(),
             RankParser(),

@@ -240,11 +240,104 @@ def _insert_rank_snapshot(conn: sqlite3.Connection, payload: dict[str, Any]) -> 
     )
 
 
+def _upsert_collection_snapshot(conn: sqlite3.Connection, payload: dict[str, Any], raw_segment_id: int) -> None:
+    cards = payload.get("cards")
+    if not isinstance(cards, list):
+        return
+
+    fingerprint = payload.get("snapshot_fingerprint")
+    if not fingerprint:
+        return
+
+    row = conn.execute(
+        "SELECT id FROM collection_snapshots WHERE snapshot_fingerprint=?",
+        (fingerprint,),
+    ).fetchone()
+    if row:
+        snapshot_id = int(row[0])
+        conn.execute(
+            """
+            UPDATE collection_snapshots
+            SET captured_at=CURRENT_TIMESTAMP,
+                source_kind=?,
+                raw_segment_id=?,
+                parser_schema_version=?,
+                client_build=?,
+                unique_cards=?,
+                total_cards=?
+            WHERE id=?
+            """,
+            (
+                payload.get("source_kind"),
+                raw_segment_id,
+                payload.get("parser_schema_version"),
+                payload.get("client_build"),
+                payload.get("unique_cards"),
+                payload.get("total_cards"),
+                snapshot_id,
+            ),
+        )
+        conn.execute("DELETE FROM collection_cards WHERE collection_snapshot_id=?", (snapshot_id,))
+    else:
+        cur = conn.execute(
+            """
+            INSERT INTO collection_snapshots(
+                captured_at,
+                source_kind,
+                raw_segment_id,
+                snapshot_fingerprint,
+                parser_schema_version,
+                client_build,
+                unique_cards,
+                total_cards
+            ) VALUES (CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                payload.get("source_kind"),
+                raw_segment_id,
+                fingerprint,
+                payload.get("parser_schema_version"),
+                payload.get("client_build"),
+                payload.get("unique_cards"),
+                payload.get("total_cards"),
+            ),
+        )
+        snapshot_id = int(cur.lastrowid)
+
+    rows_to_insert: list[tuple[int, int, int]] = []
+    for entry in cards:
+        if not isinstance(entry, dict):
+            continue
+        arena_card_id = entry.get("arena_card_id")
+        quantity = entry.get("quantity")
+        if arena_card_id is None or quantity is None:
+            continue
+        rows_to_insert.append((snapshot_id, int(arena_card_id), int(quantity)))
+
+    if rows_to_insert:
+        conn.executemany(
+            "INSERT INTO collection_cards(collection_snapshot_id, arena_card_id, quantity) VALUES (?, ?, ?)",
+            rows_to_insert,
+        )
+
+
+def _record_parser_error(conn: sqlite3.Connection, parser_name: str, raw_segment_id: int, message: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO parser_errors(parser_name, raw_segment_id, error_message)
+        VALUES (?, ?, ?)
+        """,
+        (parser_name, raw_segment_id, message),
+    )
+
+
 def apply_parser_result(db_path: Path, raw_segment_id: int, result: ParserResult) -> None:
     conn = _connect(db_path)
     try:
         family = result.family
         payload = result.payload
+
+        error_message: str | None = None
 
         if family == "match_room":
             _upsert_match(conn, payload, raw_segment_id)
@@ -260,11 +353,26 @@ def apply_parser_result(db_path: Path, raw_segment_id: int, result: ParserResult
             _upsert_observed_card(conn, payload)
         elif family == "rank_snapshot":
             _insert_rank_snapshot(conn, payload)
+        elif family == "collection_snapshot":
+            _upsert_collection_snapshot(conn, payload, raw_segment_id)
+        elif family == "collection_parse_error":
+            error_message = str(payload.get("error", "collection parse error"))
+            _record_parser_error(
+                conn,
+                str(payload.get("parser_name", "collection")),
+                raw_segment_id,
+                error_message,
+            )
 
-        parse_status = "parsed" if family != "unknown" else "unknown"
+        if family == "unknown":
+            parse_status = "unknown"
+        elif family == "collection_parse_error":
+            parse_status = "error"
+        else:
+            parse_status = "parsed"
         conn.execute(
-            "UPDATE raw_segments SET segment_type=?, parse_status=? WHERE id=?",
-            (family, parse_status, raw_segment_id),
+            "UPDATE raw_segments SET segment_type=?, parse_status=?, error_message=? WHERE id=?",
+            (family, parse_status, error_message, raw_segment_id),
         )
         conn.commit()
     finally:
@@ -274,13 +382,7 @@ def apply_parser_result(db_path: Path, raw_segment_id: int, result: ParserResult
 def mark_parser_error(db_path: Path, raw_segment_id: int, parser_name: str, message: str) -> None:
     conn = _connect(db_path)
     try:
-        conn.execute(
-            """
-            INSERT INTO parser_errors(parser_name, raw_segment_id, error_message)
-            VALUES (?, ?, ?)
-            """,
-            (parser_name, raw_segment_id, message),
-        )
+        _record_parser_error(conn, parser_name, raw_segment_id, message)
         conn.execute(
             "UPDATE raw_segments SET parse_status='error', error_message=? WHERE id=?",
             (message, raw_segment_id),
