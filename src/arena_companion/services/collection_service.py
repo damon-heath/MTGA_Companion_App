@@ -16,10 +16,15 @@ class CollectionService:
         self.db_path = db_path
         self._card_lookup = CardLookupService(cards_db_path) if cards_db_path is not None else None
 
-    def _card_name(self, arena_card_id: int) -> str:
+    def _card_metadata(self, arena_card_id: int) -> dict[str, str | int | None]:
         if self._card_lookup is None:
-            return f"Unknown Card ({arena_card_id})"
-        return self._card_lookup.lookup_name(arena_card_id)
+            return {
+                "arena_card_id": arena_card_id,
+                "name": f"Unknown Card ({arena_card_id})",
+                "set_code": None,
+                "rarity": None,
+            }
+        return self._card_lookup.lookup_metadata(arena_card_id)
 
     def list_snapshots(self, limit: int = 50) -> list[dict[str, Any]]:
         conn = _connect(self.db_path)
@@ -67,10 +72,13 @@ class CollectionService:
         cards: list[dict[str, Any]] = []
         for arena_card_id, quantity in rows:
             card_id = int(arena_card_id)
+            metadata = self._card_metadata(card_id)
             cards.append(
                 {
                     "arena_card_id": card_id,
-                    "card_name": self._card_name(card_id),
+                    "card_name": str(metadata["name"]),
+                    "set_code": metadata["set_code"],
+                    "rarity": metadata["rarity"],
                     "quantity": int(quantity),
                 }
             )
@@ -91,7 +99,14 @@ class CollectionService:
         older = int(rows[1][0])
         return (older, newer)
 
-    def diff_snapshots(self, from_snapshot_id: int, to_snapshot_id: int) -> list[dict[str, Any]]:
+    def diff_snapshots(
+        self,
+        from_snapshot_id: int,
+        to_snapshot_id: int,
+        set_code: str | None = None,
+        rarity: str | None = None,
+        delta_filter: str = "all",
+    ) -> list[dict[str, Any]]:
         conn = _connect(self.db_path)
         try:
             from_rows = conn.execute(
@@ -108,20 +123,84 @@ class CollectionService:
         from_map = {int(card_id): int(quantity) for card_id, quantity in from_rows}
         to_map = {int(card_id): int(quantity) for card_id, quantity in to_rows}
 
+        normalized_set = set_code.upper() if set_code else None
+        normalized_rarity = rarity.lower() if rarity else None
+        normalized_delta_filter = delta_filter.lower()
+        if normalized_delta_filter not in {"all", "gains", "losses"}:
+            raise ValueError("delta_filter must be one of: all, gains, losses")
+
         rows: list[dict[str, Any]] = []
         for arena_card_id in sorted(set(from_map).union(to_map)):
             quantity_from = from_map.get(arena_card_id, 0)
             quantity_to = to_map.get(arena_card_id, 0)
             if quantity_from == quantity_to:
                 continue
+            delta = quantity_to - quantity_from
+            if normalized_delta_filter == "gains" and delta <= 0:
+                continue
+            if normalized_delta_filter == "losses" and delta >= 0:
+                continue
+
+            metadata = self._card_metadata(arena_card_id)
+            metadata_set = str(metadata["set_code"]).upper() if metadata["set_code"] else None
+            metadata_rarity = str(metadata["rarity"]).lower() if metadata["rarity"] else None
+
+            if normalized_set and metadata_set != normalized_set:
+                continue
+            if normalized_rarity and metadata_rarity != normalized_rarity:
+                continue
             rows.append(
                 {
                     "arena_card_id": arena_card_id,
-                    "card_name": self._card_name(arena_card_id),
+                    "card_name": str(metadata["name"]),
+                    "set_code": metadata["set_code"],
+                    "rarity": metadata["rarity"],
                     "quantity_from": quantity_from,
                     "quantity_to": quantity_to,
-                    "delta": quantity_to - quantity_from,
+                    "delta": delta,
                 }
             )
 
         return rows
+
+    def trend_summary(self, limit_pairs: int = 5) -> list[dict[str, Any]]:
+        conn = _connect(self.db_path)
+        try:
+            rows = conn.execute(
+                """
+                SELECT id, captured_at
+                FROM collection_snapshots
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (max(limit_pairs + 1, 2),),
+            ).fetchall()
+        finally:
+            conn.close()
+
+        if len(rows) < 2:
+            return []
+
+        trend_rows: list[dict[str, Any]] = []
+        for idx in range(min(limit_pairs, len(rows) - 1)):
+            newer_id = int(rows[idx][0])
+            newer_captured = str(rows[idx][1])
+            older_id = int(rows[idx + 1][0])
+            older_captured = str(rows[idx + 1][1])
+            diff_rows = self.diff_snapshots(older_id, newer_id)
+            gains = [row for row in diff_rows if int(row["delta"]) > 0]
+            losses = [row for row in diff_rows if int(row["delta"]) < 0]
+            trend_rows.append(
+                {
+                    "from_snapshot_id": older_id,
+                    "to_snapshot_id": newer_id,
+                    "from_captured_at": older_captured,
+                    "to_captured_at": newer_captured,
+                    "gained_cards": len(gains),
+                    "lost_cards": len(losses),
+                    "gained_quantity": sum(int(row["delta"]) for row in gains),
+                    "lost_quantity": sum(-int(row["delta"]) for row in losses),
+                    "net_delta": sum(int(row["delta"]) for row in diff_rows),
+                }
+            )
+        return trend_rows

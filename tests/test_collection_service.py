@@ -35,6 +35,12 @@ def _seed_cards_db(path: Path) -> None:
             VALUES (67330, 'Plains', 'FDN', '276', 'common', 0, 'Basic Land - Plains', 0)
             """
         )
+        conn.execute(
+            """
+            INSERT INTO cards(arena_card_id, name, set_code, collector_number, rarity, mana_value, type_line, is_token)
+            VALUES (88888, 'Sunblade Angel', 'ANA', '1', 'rare', 6, 'Creature - Angel', 0)
+            """
+        )
         conn.commit()
     finally:
         conn.close()
@@ -105,11 +111,35 @@ class CollectionServiceTests(unittest.TestCase):
             self.assertEqual(diff[0]["arena_card_id"], 67330)
             self.assertEqual(diff[0]["delta"], 1)
             self.assertEqual(diff[0]["card_name"], "Plains")
+            self.assertEqual(diff[0]["set_code"], "FDN")
+            self.assertEqual(diff[0]["rarity"], "common")
             self.assertEqual(diff[1]["arena_card_id"], 77777)
             self.assertEqual(diff[1]["delta"], -2)
             self.assertIn("Unknown Card", diff[1]["card_name"])
             self.assertEqual(diff[2]["arena_card_id"], 88888)
             self.assertEqual(diff[2]["delta"], 2)
+            self.assertEqual(diff[2]["set_code"], "ANA")
+            self.assertEqual(diff[2]["rarity"], "rare")
+
+            gains_only = service.diff_snapshots(int(old_id), int(new_id), delta_filter="gains")
+            self.assertEqual([row["arena_card_id"] for row in gains_only], [67330, 88888])
+
+            losses_only = service.diff_snapshots(int(old_id), int(new_id), delta_filter="losses")
+            self.assertEqual([row["arena_card_id"] for row in losses_only], [77777])
+
+            set_filtered = service.diff_snapshots(int(old_id), int(new_id), set_code="ANA")
+            self.assertEqual([row["arena_card_id"] for row in set_filtered], [88888])
+
+            rarity_filtered = service.diff_snapshots(int(old_id), int(new_id), rarity="common")
+            self.assertEqual([row["arena_card_id"] for row in rarity_filtered], [67330])
+
+            trends = service.trend_summary(limit_pairs=3)
+            self.assertEqual(len(trends), 1)
+            self.assertEqual(trends[0]["from_snapshot_id"], int(old_id))
+            self.assertEqual(trends[0]["to_snapshot_id"], int(new_id))
+            self.assertEqual(trends[0]["gained_cards"], 2)
+            self.assertEqual(trends[0]["lost_cards"], 1)
+            self.assertEqual(trends[0]["net_delta"], 1)
 
 
 if __name__ == "__main__":
