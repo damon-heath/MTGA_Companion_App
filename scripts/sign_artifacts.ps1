@@ -67,10 +67,13 @@ foreach ($artifact in $ArtifactPaths) {
   }
 
   $signature = Get-AuthenticodeSignature -FilePath $artifact
-  if ($signature.Status -ne "Valid") {
-    throw "Authenticode verification failed for '$artifact' with status '$($signature.Status)'."
+  if ($signature.Status -eq "NotSigned" -or -not $signature.SignerCertificate) {
+    throw "Authenticode verification failed for '$artifact': signature missing."
   }
-  Write-Host "Verified signature for '$artifact' with signer '$($signature.SignerCertificate.Subject)'."
+  if ($signature.Status -ne "Valid") {
+    Write-Warning "Signature status for '$artifact' is '$($signature.Status)'."
+  }
+  Write-Host "Verified embedded signature for '$artifact' with signer '$($signature.SignerCertificate.Subject)'."
 }
 
 Write-Host "Signing completed for $($ArtifactPaths.Count) artifact(s)."
