@@ -153,6 +153,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
     value_json TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS ingest_checkpoints (
+    source_file TEXT PRIMARY KEY,
+    last_offset INTEGER NOT NULL,
+    last_segment_id INTEGER,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(last_segment_id) REFERENCES raw_segments(id)
+);
+
 CREATE TABLE IF NOT EXISTS collection_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     captured_at TEXT NOT NULL,

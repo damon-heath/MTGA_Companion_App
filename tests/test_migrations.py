@@ -42,6 +42,7 @@ class MigrationTests(unittest.TestCase):
                 "turn_events",
                 "parser_errors",
                 "app_settings",
+                "ingest_checkpoints",
                 "collection_snapshots",
                 "collection_cards",
             }
