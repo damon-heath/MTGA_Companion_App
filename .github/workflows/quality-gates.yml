@@ -29,6 +29,9 @@ jobs:
     needs:
       - tests
     runs-on: windows-latest
+    env:
+      WINDOWS_SIGN_CERT_PFX_BASE64: ${{ secrets.WINDOWS_SIGN_CERT_PFX_BASE64 }}
+      WINDOWS_SIGN_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}
     defaults:
       run:
         shell: pwsh
@@ -66,12 +69,12 @@ jobs:
           powershell -ExecutionPolicy Bypass -File scripts/package_release.ps1 -Version $env:RELEASE_VERSION -BuildInstaller
 
       - name: Sign Windows Binaries (Optional)
-        if: ${{ secrets.WINDOWS_SIGN_CERT_PFX_BASE64 != '' && secrets.WINDOWS_SIGN_CERT_PASSWORD != '' }}
+        if: ${{ env.WINDOWS_SIGN_CERT_PFX_BASE64 != '' && env.WINDOWS_SIGN_CERT_PASSWORD != '' }}
         run: |
           $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
           [System.IO.File]::WriteAllBytes(
             $pfxPath,
-            [System.Convert]::FromBase64String("${{ secrets.WINDOWS_SIGN_CERT_PFX_BASE64 }}")
+            [System.Convert]::FromBase64String($env:WINDOWS_SIGN_CERT_PFX_BASE64)
           )
           powershell -ExecutionPolicy Bypass -File scripts/sign_artifacts.ps1 `
             -ArtifactPaths @(
@@ -79,7 +82,7 @@ jobs:
               "build\\installer\\dist\\ArenaCompanionSetup.exe"
             ) `
             -PfxPath $pfxPath `
-            -PfxPassword "${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}"
+            -PfxPassword $env:WINDOWS_SIGN_CERT_PASSWORD
 
       - name: Assemble Artifact Bundle
         run: |
