@@ -23,6 +23,8 @@
 - [x] `main` branch protection policy includes required checks and review gates.
 - [x] Branch protection conformance workflow enabled:
   - `.github/workflows/branch-protection-conformance.yml`
+- [x] Rollback/compromised-tag runbook maintained:
+  - `docs/release-rollback-runbook.md`
 
 ## Evidence
 - Unit tests: `python -m unittest discover -s tests -p "test_*.py" -v` (38 passed).
@@ -30,5 +32,6 @@
 - Installer lifecycle evidence: `docs/installer-validation-results.md`
 - Performance baseline: `docs/performance-baseline.md`
 - Distribution notes: `docs/distribution-notes.md`
+- Rollback runbook: `docs/release-rollback-runbook.md`
 - Release tag: `v1.0.0`
 - GitHub release: `https://github.com/damon-heath/MTGA_Companion_App/releases/tag/v1.0.0`
