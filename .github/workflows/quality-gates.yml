@@ -106,6 +106,10 @@ jobs:
           $version = "${{ github.ref_name }}".TrimStart('v')
           "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Validate Tag and Release Notes Version
+        run: |
+          python scripts/verify_release_notes_tag.py --tag "${{ github.ref_name }}" --notes-file docs/release-notes.md
+
       - name: Build Release Artifacts
         run: |
           powershell -ExecutionPolicy Bypass -File scripts/package_release.ps1 -Version $env:RELEASE_VERSION -BuildInstaller
