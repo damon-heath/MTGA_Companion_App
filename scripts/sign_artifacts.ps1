@@ -5,7 +5,7 @@ param(
   [string]$PfxPath,
   [Parameter(Mandatory = $true)]
   [string]$PfxPassword,
-  [string]$TimestampUrl = "http://timestamp.digicert.com"
+  [string]$TimestampUrl = "https://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,18 +46,34 @@ function Resolve-SignTool {
   return $fallback[0].FullName
 }
 
+function Resolve-TimestampArguments {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$SignToolPath,
+    [Parameter(Mandatory = $true)]
+    [string]$Url
+  )
+
+  $help = & $SignToolPath sign /? 2>&1 | Out-String
+  if ($help -match '(?i)\s/tr\s') {
+    return @("/tr", $Url, "/td", "SHA256")
+  }
+  return @("/t", $Url)
+}
+
 if (-not (Test-Path $PfxPath)) {
   throw "PFX certificate file not found: $PfxPath"
 }
 
 $signtool = Resolve-SignTool
+$timestampArgs = Resolve-TimestampArguments -SignToolPath $signtool -Url $TimestampUrl
 
 foreach ($artifact in $ArtifactPaths) {
   if (-not (Test-Path $artifact)) {
     throw "Artifact not found for signing: $artifact"
   }
 
-  & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword /tr $TimestampUrl /td SHA256 $artifact
+  & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword @timestampArgs $artifact
   if ($LASTEXITCODE -ne 0) {
     throw "signtool sign failed for '$artifact' with exit code $LASTEXITCODE"
   }
