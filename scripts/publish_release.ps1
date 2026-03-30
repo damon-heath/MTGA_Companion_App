@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory=$true)][string]$Version,
   [Parameter(Mandatory=$true)][string]$ArtifactDir,
+  [string]$NotesFile,
   [switch]$DryRun
 )
 
@@ -39,6 +40,32 @@ function Resolve-ArtifactPath {
   }
 
   return $resolved.Path
+}
+
+function Resolve-ReleaseNotesPath {
+  param(
+    [Parameter(Mandatory=$true)][string]$VersionValue,
+    [string]$NotesOverride
+  )
+
+  if ($NotesOverride) {
+    try {
+      $resolvedOverride = Resolve-Path -LiteralPath $NotesOverride -ErrorAction Stop
+    } catch {
+      throw "Specified notes file '$NotesOverride' does not exist."
+    }
+    if (-not (Test-Path -LiteralPath $resolvedOverride.Path -PathType Leaf)) {
+      throw "Specified notes path '$($resolvedOverride.Path)' is not a file."
+    }
+    return $resolvedOverride.Path
+  }
+
+  $defaultRelativePath = Join-Path "docs" ("release-notes-v{0}.md" -f $VersionValue)
+  if (-not (Test-Path -LiteralPath $defaultRelativePath -PathType Leaf)) {
+    throw "Versioned release notes file '$defaultRelativePath' not found. Create it or pass -NotesFile."
+  }
+
+  return (Resolve-Path -LiteralPath $defaultRelativePath -ErrorAction Stop).Path
 }
 
 function Assert-RequiredArtifacts {
@@ -125,7 +152,7 @@ $requiredArtifacts = @(
 )
 Assert-RequiredArtifacts -ArtifactPath $artifactPath -RequiredFileNames $requiredArtifacts
 
-$releaseNotesPath = (Resolve-Path -LiteralPath "docs/release-notes.md" -ErrorAction Stop).Path
+$releaseNotesPath = Resolve-ReleaseNotesPath -VersionValue $Version -NotesOverride $NotesFile
 
 $artifactFilesForChecksums = Get-ChildItem -LiteralPath $artifactPath -File |
   Where-Object { $_.Name -ne "checksums.txt" } |
@@ -141,7 +168,7 @@ Verify-Checksums -ArtifactPath $artifactPath -ChecksumsPath $checksumsPath
 $tag = "v$Version"
 
 if ($DryRun) {
-  Write-Host "Preflight passed for '$tag'. Dry run enabled; skipping tag creation and GitHub release publish."
+  Write-Host "Preflight passed for '$tag' using notes '$releaseNotesPath'. Dry run enabled; skipping tag creation and GitHub release publish."
   exit 0
 }
 
