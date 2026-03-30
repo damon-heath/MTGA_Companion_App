@@ -11,6 +11,8 @@
 - [x] PyInstaller one-folder build completed.
 - [x] Installer built and validated on clean profile/machine-equivalent flow.
 - [x] Checksums generated for release artifacts.
+- [x] Post-release smoke workflow passes for release tags:
+  - `.github/workflows/post-release-smoke.yml`
 
 ## Legal / Distribution
 - [x] Mark product as unofficial fan-made software.
