@@ -29,6 +29,10 @@ jobs:
             requirements.txt
             requirements-ci.txt
 
+      - name: Validate Release Version Sync
+        run: |
+          python scripts/verify_release_version_sync.py
+
       - name: Run Unit Tests (ResourceWarning=error)
         run: |
           python -W error::ResourceWarning -m unittest discover -s tests -p "test_*.py" -v
