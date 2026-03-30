@@ -17,6 +17,11 @@
 - [x] Do not ship Wizards-owned logos/assets without permission.
 - [x] Include Wizards Fan Content Policy disclaimer in release notes.
 
+## Governance Gates
+- [x] `main` branch protection policy includes required checks and review gates.
+- [x] Branch protection conformance workflow enabled:
+  - `.github/workflows/branch-protection-conformance.yml`
+
 ## Evidence
 - Unit tests: `python -m unittest discover -s tests -p "test_*.py" -v` (38 passed).
 - Regression CI run: `https://github.com/damon-heath/MTGA_Companion_App/actions/runs/23755269932`

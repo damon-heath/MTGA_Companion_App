@@ -1,0 +1,27 @@
+name: Branch Protection Conformance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "20 13 * * 1"
+
+jobs:
+  verify_main_branch_protection:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Verify branch protection policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python scripts/verify_branch_protection.py
