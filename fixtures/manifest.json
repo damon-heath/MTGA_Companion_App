@@ -1,0 +1,12 @@
+[
+  {
+    "fixture_id": "sample_session_001",
+    "scenario": "synthetic_smoke",
+    "client_version": "unknown",
+    "raw_path": "fixtures/raw_logs/sample_session_001.log",
+    "sanitized_path": "fixtures/sanitized_logs/sample_session_001.log",
+    "expected_output_path": "fixtures/expected_outputs/sample_session_001.events.json",
+    "families": ["match room", "results", "unknown"],
+    "notes": "Synthetic starter fixture for harness validation."
+  }
+]
