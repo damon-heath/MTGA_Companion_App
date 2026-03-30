@@ -25,3 +25,12 @@ powershell -ExecutionPolicy Bypass -File scripts/sign_artifacts.ps1 `
 ## Notes
 - `signtool.exe` must be available (in PATH or Windows SDK path).
 - Timestamping defaults to `http://timestamp.digicert.com`.
+
+## Key Rotation and Secret Revocation
+1. Revoke compromised certificate with your certificate authority.
+2. Delete compromised repository secrets:
+   - `WINDOWS_SIGN_CERT_PFX_BASE64`
+   - `WINDOWS_SIGN_CERT_PASSWORD`
+3. Generate/import replacement signing certificate (`.pfx`).
+4. Upload replacement secrets in repository settings.
+5. Run a signed-tag smoke build and verify Authenticode status before publishing the next release.
