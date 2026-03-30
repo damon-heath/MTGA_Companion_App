@@ -15,9 +15,21 @@ Write-Host "Packaging one-folder build..."
 python -m PyInstaller build/pyinstaller/arena_companion.spec --clean --noconfirm
 
 if ($BuildInstaller) {
-  $isccPath = Join-Path $env:USERPROFILE "AppData\\Local\\Programs\\InnoSetup\\ISCC.exe"
-  if (-not (Test-Path $isccPath)) {
-    throw "ISCC.exe not found at '$isccPath'. Install Inno Setup or provide compiler in PATH."
+  $candidates = @(
+    (Join-Path $env:USERPROFILE "AppData\\Local\\Programs\\InnoSetup\\ISCC.exe"),
+    (Join-Path $env:USERPROFILE "AppData\\Local\\Programs\\Inno Setup 6\\ISCC.exe")
+  )
+  $isccPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+  if (-not $isccPath) {
+    $isccCmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+    if ($isccCmd) {
+      $isccPath = $isccCmd.Source
+    }
+  }
+
+  if (-not $isccPath) {
+    throw "ISCC.exe not found in standard user locations or PATH."
   }
 
   Write-Host "Building installer via Inno Setup..."

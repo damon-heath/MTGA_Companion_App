@@ -1,0 +1,134 @@
+name: Quality Gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run Unit Tests (ResourceWarning=error)
+        run: |
+          python -W error::ResourceWarning -m unittest discover -s tests -p "test_*.py" -v
+
+  release_tag_build:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - tests
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Packaging Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller
+
+      - name: Install Inno Setup (Current User)
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup-installer.exe"
+          Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER') -Wait
+          $iscc = Join-Path $env:USERPROFILE "AppData\\Local\\Programs\\Inno Setup 6\\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            throw "ISCC.exe not found at expected path: $iscc"
+          }
+
+      - name: Resolve Release Version
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build Release Artifacts
+        run: |
+          powershell -ExecutionPolicy Bypass -File scripts/package_release.ps1 -Version $env:RELEASE_VERSION -BuildInstaller
+
+      - name: Sign Windows Binaries (Optional)
+        if: ${{ secrets.WINDOWS_SIGN_CERT_PFX_BASE64 != '' && secrets.WINDOWS_SIGN_CERT_PASSWORD != '' }}
+        run: |
+          $pfxPath = Join-Path $env:RUNNER_TEMP "codesign.pfx"
+          [System.IO.File]::WriteAllBytes(
+            $pfxPath,
+            [System.Convert]::FromBase64String("${{ secrets.WINDOWS_SIGN_CERT_PFX_BASE64 }}")
+          )
+          powershell -ExecutionPolicy Bypass -File scripts/sign_artifacts.ps1 `
+            -ArtifactPaths @(
+              "dist\\ArenaCompanion\\ArenaCompanion.exe",
+              "build\\installer\\dist\\ArenaCompanionSetup.exe"
+            ) `
+            -PfxPath $pfxPath `
+            -PfxPassword "${{ secrets.WINDOWS_SIGN_CERT_PASSWORD }}"
+
+      - name: Assemble Artifact Bundle
+        run: |
+          $artifactDir = "artifacts\\release\\$env:RELEASE_VERSION"
+          New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
+
+          if (Test-Path "dist\\ArenaCompanion-onefolder.zip") {
+            Remove-Item -LiteralPath "dist\\ArenaCompanion-onefolder.zip" -Force
+          }
+          Compress-Archive -Path "dist\\ArenaCompanion\\*" -DestinationPath "dist\\ArenaCompanion-onefolder.zip" -CompressionLevel Optimal
+
+          Copy-Item -LiteralPath "build\\installer\\dist\\ArenaCompanionSetup.exe" -Destination (Join-Path $artifactDir "ArenaCompanionSetup.exe") -Force
+          Copy-Item -LiteralPath "dist\\ArenaCompanion-onefolder.zip" -Destination (Join-Path $artifactDir "ArenaCompanion-onefolder.zip") -Force
+
+          $checksums = Join-Path $artifactDir "checksums.txt"
+          Get-ChildItem -Path $artifactDir -File | ForEach-Object {
+            $hash = Get-FileHash -Algorithm SHA256 -Path $_.FullName
+            "{0}  {1}" -f $hash.Hash.ToLower(), $_.Name
+          } | Set-Content -LiteralPath $checksums -Encoding utf8
+
+      - name: Verify Checksums
+        run: |
+          $artifactDir = "artifacts\\release\\$env:RELEASE_VERSION"
+          $checksumsPath = Join-Path $artifactDir "checksums.txt"
+          $lines = Get-Content -LiteralPath $checksumsPath
+          foreach ($line in $lines) {
+            if (-not $line.Trim()) { continue }
+            $parts = $line -split "\\s{2,}", 2
+            if ($parts.Count -ne 2) {
+              throw "Invalid checksum line format: $line"
+            }
+
+            $expected = $parts[0].Trim().ToLower()
+            $name = $parts[1].Trim()
+            $path = Join-Path $artifactDir $name
+            if (-not (Test-Path $path)) {
+              throw "Missing artifact referenced in checksums: $name"
+            }
+
+            $actual = (Get-FileHash -Algorithm SHA256 -Path $path).Hash.ToLower()
+            if ($expected -ne $actual) {
+              throw "Checksum mismatch for $name"
+            }
+          }
+          Write-Host "Checksum verification passed."
+
+      - name: Upload Release Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-tag-build-${{ github.ref_name }}
+          path: artifacts/release/${{ env.RELEASE_VERSION }}/*
+          if-no-files-found: error
