@@ -76,7 +76,7 @@ jobs:
             $pfxPath,
             [System.Convert]::FromBase64String($env:WINDOWS_SIGN_CERT_PFX_BASE64)
           )
-          powershell -ExecutionPolicy Bypass -File scripts/sign_artifacts.ps1 `
+          & "scripts/sign_artifacts.ps1" `
             -ArtifactPaths @(
               "dist\\ArenaCompanion\\ArenaCompanion.exe",
               "build\\installer\\dist\\ArenaCompanionSetup.exe"
