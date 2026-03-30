@@ -13,13 +13,18 @@ class FollowState:
     last_size: int = 0
 
 
-def replay_file(source_file: Path) -> list[RawSegment]:
+def replay_file(source_file: Path, start_offset: int = 0) -> list[RawSegment]:
     if not source_file.exists():
         return []
 
-    with source_file.open("r", encoding="utf-8", errors="replace") as handle:
-        lines = handle.readlines()
-    return frame_lines(source_file, lines, start_offset=0)
+    size = source_file.stat().st_size
+    offset = min(max(start_offset, 0), size)
+    with source_file.open("rb") as handle:
+        handle.seek(offset)
+        payload = handle.read()
+    text = payload.decode("utf-8", errors="replace")
+    lines = text.splitlines(keepends=True)
+    return frame_lines(source_file, lines, start_offset=offset)
 
 
 def read_new_segments(state: FollowState) -> tuple[list[RawSegment], bool]:
