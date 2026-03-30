@@ -14,6 +14,9 @@ All mirrored values must exactly match the authoritative value and use semantic 
   - `python scripts/verify_release_version_sync.py`
 - Tag-to-release-notes check (pre-publish):
   - `python scripts/verify_release_notes_tag.py --tag vX.Y.Z --notes-file docs/release-notes.md`
+- Publish notes snapshot requirement:
+  - `scripts/publish_release.ps1` defaults to `docs/release-notes-vX.Y.Z.md` for the target version.
+  - Use `-NotesFile` only when intentionally overriding this default.
 - CI check:
   - `Quality Gates` workflow runs the same script on pull requests and pushes.
   - Tag builds also run the tag-to-release-notes check on `refs/tags/v*`.
