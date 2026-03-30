@@ -22,6 +22,12 @@ Track observed MTGA log message families and their planned parser ownership.
 - Bump parser version when behavior changes.
 - Reprocess from `raw_segments` after parser upgrades.
 
+## Contract Migration Notes (v1.2.0 / Issue #73)
+- Parser registry now emits typed event DTOs in `parsers.events` and still includes a dict payload for compatibility.
+- `ParserResult` includes `contract_version` (`v1` baseline) and DTO reference (`event`).
+- Normalization now persists parser contract metadata per segment in `normalized_event_contracts`.
+- Fallback behavior is unchanged: unknown segments remain retained (`family=unknown`) and still receive contract metadata for auditability.
+
 ## Fixture Traceability
 Document every new fixture set with:
 1. Capture scenario.

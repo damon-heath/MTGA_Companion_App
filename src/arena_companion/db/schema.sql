@@ -161,6 +161,14 @@ CREATE TABLE IF NOT EXISTS ingest_checkpoints (
     FOREIGN KEY(last_segment_id) REFERENCES raw_segments(id)
 );
 
+CREATE TABLE IF NOT EXISTS normalized_event_contracts (
+    raw_segment_id INTEGER PRIMARY KEY,
+    family TEXT NOT NULL,
+    contract_version TEXT NOT NULL,
+    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(raw_segment_id) REFERENCES raw_segments(id)
+);
+
 CREATE TABLE IF NOT EXISTS collection_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     captured_at TEXT NOT NULL,

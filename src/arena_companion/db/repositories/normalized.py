@@ -242,7 +242,7 @@ def _insert_rank_snapshot(conn: sqlite3.Connection, payload: dict[str, Any]) -> 
 
 def _upsert_collection_snapshot(conn: sqlite3.Connection, payload: dict[str, Any], raw_segment_id: int) -> None:
     cards = payload.get("cards")
-    if not isinstance(cards, list):
+    if not isinstance(cards, (list, tuple)):
         return
 
     fingerprint = payload.get("snapshot_fingerprint")
@@ -331,6 +331,20 @@ def _record_parser_error(conn: sqlite3.Connection, parser_name: str, raw_segment
     )
 
 
+def _record_event_contract(conn: sqlite3.Connection, raw_segment_id: int, family: str, contract_version: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO normalized_event_contracts(raw_segment_id, family, contract_version)
+        VALUES (?, ?, ?)
+        ON CONFLICT(raw_segment_id) DO UPDATE SET
+            family=excluded.family,
+            contract_version=excluded.contract_version,
+            applied_at=CURRENT_TIMESTAMP
+        """,
+        (raw_segment_id, family, contract_version),
+    )
+
+
 def apply_parser_result(db_path: Path, raw_segment_id: int, result: ParserResult) -> None:
     conn = _connect(db_path)
     try:
@@ -374,6 +388,7 @@ def apply_parser_result(db_path: Path, raw_segment_id: int, result: ParserResult
             "UPDATE raw_segments SET segment_type=?, parse_status=?, error_message=? WHERE id=?",
             (family, parse_status, error_message, raw_segment_id),
         )
+        _record_event_contract(conn, raw_segment_id, family, result.contract_version)
         conn.commit()
     finally:
         conn.close()
