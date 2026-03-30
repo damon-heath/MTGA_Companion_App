@@ -4,7 +4,7 @@
 [Setup]
 AppId={{A2D8A3E9-2F17-4E94-A6B7-4A3DE80C8E5A}
 AppName=Arena Companion
-AppVersion=1.3.0
+AppVersion=1.4.0
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\Arena Companion
 DefaultGroupName=Arena Companion
