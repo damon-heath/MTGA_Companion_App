@@ -1,3 +1,4 @@
+import json
 import pathlib
 import unittest
 
@@ -15,10 +16,15 @@ class GoldenHarnessTests(unittest.TestCase):
         self.assertEqual(events[1]["family"], "results")
         self.assertEqual(events[2]["family"], "unknown")
 
-    def test_compare_fixture_matches_expected(self) -> None:
-        log_path = ROOT / "fixtures" / "sanitized_logs" / "sample_session_001.log"
-        expected_path = ROOT / "fixtures" / "expected_outputs" / "sample_session_001.events.json"
-        self.assertTrue(compare_fixture(log_path, expected_path))
+    def test_compare_all_manifest_fixtures_match_expected(self) -> None:
+        manifest_path = ROOT / "fixtures" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        for entry in manifest:
+            with self.subTest(fixture_id=entry["fixture_id"]):
+                log_path = ROOT / entry["sanitized_path"]
+                expected_path = ROOT / entry["expected_output_path"]
+                self.assertTrue(compare_fixture(log_path, expected_path))
 
 
 if __name__ == "__main__":

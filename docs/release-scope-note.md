@@ -1,7 +1,7 @@
 # v1.0.0 Scope Note
 
-Collection module work remains conditional and gated by issue #13.
-Until spike evidence passes, 1.0.0 scope is analytics-first:
+Collection module work is de-scoped from 1.0.0 based on spike #13 no-go findings.
+1.0.0 scope is analytics-first:
 - ingest
 - parsing and normalization
 - opponents and observed cards

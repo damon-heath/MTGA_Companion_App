@@ -1,0 +1,17 @@
+[
+  {
+    "line": 1,
+    "family": "unknown",
+    "status": "retained"
+  },
+  {
+    "line": 2,
+    "family": "results",
+    "status": "known"
+  },
+  {
+    "line": 3,
+    "family": "unknown",
+    "status": "retained"
+  }
+]

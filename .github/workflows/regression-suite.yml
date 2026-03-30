@@ -1,0 +1,31 @@
+name: Regression Suite
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Run regression tests
+        run: |
+          python -m unittest tests/test_golden_harness.py tests/test_fixture_manifest.py -v
+
+      - name: Upload regression artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-regression-artifacts
+          path: |
+            fixtures/manifest.json
+            fixtures/expected_outputs/*.json

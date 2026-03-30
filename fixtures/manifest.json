@@ -2,11 +2,61 @@
   {
     "fixture_id": "sample_session_001",
     "scenario": "synthetic_smoke",
-    "client_version": "unknown",
+    "client_version": "2026.4.12",
     "raw_path": "fixtures/raw_logs/sample_session_001.log",
     "sanitized_path": "fixtures/sanitized_logs/sample_session_001.log",
     "expected_output_path": "fixtures/expected_outputs/sample_session_001.events.json",
     "families": ["match room", "results", "unknown"],
     "notes": "Synthetic starter fixture for harness validation."
+  },
+  {
+    "fixture_id": "launch_session_001",
+    "scenario": "launch",
+    "client_version": "2026.4.12",
+    "raw_path": "fixtures/raw_logs/launch_session_001.log",
+    "sanitized_path": "fixtures/sanitized_logs/launch_session_001.log",
+    "expected_output_path": "fixtures/expected_outputs/launch_session_001.events.json",
+    "families": ["match room", "unknown"],
+    "notes": "Cold-start launch flow with sanitizer redactions."
+  },
+  {
+    "fixture_id": "collection_navigation_001",
+    "scenario": "collection_navigation",
+    "client_version": "2026.4.12",
+    "raw_path": "fixtures/raw_logs/collection_navigation_001.log",
+    "sanitized_path": "fixtures/sanitized_logs/collection_navigation_001.log",
+    "expected_output_path": "fixtures/expected_outputs/collection_navigation_001.events.json",
+    "families": ["results", "unknown"],
+    "notes": "Collection tab navigation with inventory-like payload text."
+  },
+  {
+    "fixture_id": "deck_edit_001",
+    "scenario": "deck_edit",
+    "client_version": "2026.4.12",
+    "raw_path": "fixtures/raw_logs/deck_edit_001.log",
+    "sanitized_path": "fixtures/sanitized_logs/deck_edit_001.log",
+    "expected_output_path": "fixtures/expected_outputs/deck_edit_001.events.json",
+    "families": ["match room", "unknown"],
+    "notes": "Deck editor interactions with redacted identifiers."
+  },
+  {
+    "fixture_id": "rewards_001",
+    "scenario": "rewards",
+    "client_version": "2025.12.3",
+    "raw_path": "fixtures/raw_logs/rewards_001.log",
+    "sanitized_path": "fixtures/sanitized_logs/rewards_001.log",
+    "expected_output_path": "fixtures/expected_outputs/rewards_001.events.json",
+    "families": ["results", "unknown"],
+    "notes": "Historical-version reward claim/open flow sample."
+  },
+  {
+    "fixture_id": "match_flow_001",
+    "scenario": "match_flow",
+    "client_version": "2026.4.12",
+    "raw_path": "fixtures/raw_logs/match_flow_001.log",
+    "sanitized_path": "fixtures/sanitized_logs/match_flow_001.log",
+    "expected_output_path": "fixtures/expected_outputs/match_flow_001.events.json",
+    "families": ["match room", "results", "unknown"],
+    "notes": "Representative match start/turn/end sequence."
   }
 ]
