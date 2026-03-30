@@ -40,6 +40,10 @@ class ParserPipelineTests(unittest.TestCase):
                 collection_snapshots = conn.execute("SELECT COUNT(*) FROM collection_snapshots").fetchone()[0]
                 collection_cards = conn.execute("SELECT COUNT(*) FROM collection_cards").fetchone()[0]
                 parser_errors = conn.execute("SELECT COUNT(*) FROM parser_errors").fetchone()[0]
+                contracts = conn.execute("SELECT COUNT(*) FROM normalized_event_contracts").fetchone()[0]
+                contract_versions = {
+                    row[0] for row in conn.execute("SELECT DISTINCT contract_version FROM normalized_event_contracts").fetchall()
+                }
                 parsed = conn.execute("SELECT COUNT(*) FROM raw_segments WHERE parse_status='parsed'").fetchone()[0]
                 unknown = conn.execute("SELECT COUNT(*) FROM raw_segments WHERE parse_status='unknown'").fetchone()[0]
                 errors = conn.execute("SELECT COUNT(*) FROM raw_segments WHERE parse_status='error'").fetchone()[0]
@@ -51,6 +55,8 @@ class ParserPipelineTests(unittest.TestCase):
             self.assertEqual(collection_snapshots, 1)
             self.assertEqual(collection_cards, 2)
             self.assertEqual(parser_errors, 1)
+            self.assertEqual(contracts, 5)
+            self.assertEqual(contract_versions, {"v1"})
             self.assertEqual(parsed, 4)
             self.assertEqual(unknown, 0)
             self.assertEqual(errors, 1)

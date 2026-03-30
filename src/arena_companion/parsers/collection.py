@@ -4,7 +4,8 @@ import hashlib
 import json
 from typing import Any
 
-from arena_companion.parsers.base import ParserResult, SegmentParser
+from arena_companion.parsers.base import ParserResult, SegmentParser, parser_result_from_event
+from arena_companion.parsers.events import CollectionCardEvent, CollectionParseErrorEvent, CollectionSnapshotEvent
 
 
 def _extract_json_payload(raw_text: str) -> dict[str, Any]:
@@ -70,6 +71,7 @@ def _compute_snapshot_fingerprint(
 
 class CollectionParser(SegmentParser):
     family = "collection_snapshot"
+    contract_version = "v1"
     _MARKER = "Collection.OwnedCardsSnapshot"
 
     def parse(self, raw_text: str) -> ParserResult | None:
@@ -84,36 +86,38 @@ class CollectionParser(SegmentParser):
 
             card_quantities = _to_card_quantity_map(raw_cards)
             cards = [
-                {"arena_card_id": arena_card_id, "quantity": quantity}
+                CollectionCardEvent(arena_card_id=arena_card_id, quantity=quantity)
                 for arena_card_id, quantity in sorted(card_quantities.items())
                 if quantity > 0
             ]
             if not cards:
                 raise ValueError("no cards with positive quantity")
+            canonical_cards = [{"arena_card_id": card.arena_card_id, "quantity": card.quantity} for card in cards]
 
             source_kind = str(payload.get("source_kind", payload.get("sourceKind", "owned_cards_snapshot")))
             parser_schema_version = str(payload.get("schema_version", payload.get("schemaVersion", "v1")))
             client_build_value = payload.get("client_build", payload.get("clientBuild"))
             client_build = str(client_build_value) if client_build_value is not None else None
-            fingerprint = _compute_snapshot_fingerprint(source_kind, parser_schema_version, client_build, cards)
-
-            return ParserResult(
-                family=self.family,
-                payload={
-                    "source_kind": source_kind,
-                    "parser_schema_version": parser_schema_version,
-                    "client_build": client_build,
-                    "snapshot_fingerprint": fingerprint,
-                    "unique_cards": len(cards),
-                    "total_cards": sum(card["quantity"] for card in cards),
-                    "cards": cards,
-                },
+            fingerprint = _compute_snapshot_fingerprint(
+                source_kind,
+                parser_schema_version,
+                client_build,
+                canonical_cards,
             )
+
+            event = CollectionSnapshotEvent(
+                source_kind=source_kind,
+                parser_schema_version=parser_schema_version,
+                client_build=client_build,
+                snapshot_fingerprint=fingerprint,
+                unique_cards=len(cards),
+                total_cards=sum(card.quantity for card in cards),
+                cards=tuple(cards),
+            )
+            return parser_result_from_event(self.family, event, contract_version=self.contract_version)
         except Exception as exc:
-            return ParserResult(
-                family="collection_parse_error",
-                payload={
-                    "parser_name": "collection",
-                    "error": str(exc),
-                },
+            return parser_result_from_event(
+                "collection_parse_error",
+                CollectionParseErrorEvent(parser_name="collection", error=str(exc)),
+                contract_version=self.contract_version,
             )

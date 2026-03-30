@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 
-from arena_companion.parsers.base import ParserResult, SegmentParser
+from arena_companion.parsers.base import ParserResult, SegmentParser, parser_result_from_event
+from arena_companion.parsers.events import GreEvent
 
 
 _GRE_RE = re.compile(
@@ -12,18 +13,17 @@ _GRE_RE = re.compile(
 
 class GreParser(SegmentParser):
     family = "gre_event"
+    contract_version = "v1"
 
     def parse(self, raw_text: str) -> ParserResult | None:
         match = _GRE_RE.search(raw_text)
         if not match:
             return None
-        return ParserResult(
-            family=self.family,
-            payload={
-                "turn_number": int(match.group("turn")),
-                "event_type": match.group("event"),
-                "arena_card_id": int(match.group("card")) if match.group("card") else None,
-                "zone_from": match.group("zone_from"),
-                "zone_to": match.group("zone_to"),
-            },
+        event = GreEvent(
+            turn_number=int(match.group("turn")),
+            event_type=match.group("event"),
+            arena_card_id=int(match.group("card")) if match.group("card") else None,
+            zone_from=match.group("zone_from"),
+            zone_to=match.group("zone_to"),
         )
+        return parser_result_from_event(self.family, event, contract_version=self.contract_version)

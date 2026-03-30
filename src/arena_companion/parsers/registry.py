@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from arena_companion.parsers.base import ParserResult, SegmentParser
+from arena_companion.parsers.base import ParserResult, SegmentParser, parser_result_from_event
+from arena_companion.parsers.events import UnknownEvent
 from arena_companion.parsers.collection import CollectionParser
 from arena_companion.parsers.decks import DeckParser
 from arena_companion.parsers.gre import GreParser
@@ -29,4 +30,4 @@ class ParserRegistry:
             parsed = parser.parse(raw_text)
             if parsed is not None:
                 return parsed
-        return ParserResult(family="unknown", payload={"raw_text": raw_text})
+        return parser_result_from_event("unknown", UnknownEvent(raw_text=raw_text), contract_version="v1")
