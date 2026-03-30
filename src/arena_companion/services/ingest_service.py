@@ -26,6 +26,7 @@ class IngestService:
         self.db_path = db_path
         self.log_paths = log_paths
         self.stats = IngestStats()
+        self._live_tail_active = False
         live_checkpoint = load_checkpoint(self.db_path, log_paths.current_log)
         live_offset = live_checkpoint.last_offset if live_checkpoint else 0
         self._live_state = FollowState(source_file=log_paths.current_log, offset=live_offset, last_size=live_offset)
@@ -60,24 +61,34 @@ class IngestService:
         return inserted
 
     def ingest_live_once(self) -> int:
-        segments, truncated = read_new_segments(self._live_state)
-        inserted = insert_raw_segments(self.db_path, segments)
-        self.stats.live_segments += len(segments)
-        self.stats.deduped_segments += max(len(segments) - inserted, 0)
-        if truncated:
-            self.stats.truncation_events += 1
-        if segments:
-            self._live_last_segment_id = self._segment_id_for_offset(self.log_paths.current_log, segments[-1].source_offset)
-        upsert_checkpoint(
-            self.db_path,
-            self.log_paths.current_log,
-            self._live_state.offset,
-            self._live_last_segment_id,
-        )
-        return inserted
+        self._live_tail_active = True
+        try:
+            segments, truncated = read_new_segments(self._live_state)
+            inserted = insert_raw_segments(self.db_path, segments)
+            self.stats.live_segments += len(segments)
+            self.stats.deduped_segments += max(len(segments) - inserted, 0)
+            if truncated:
+                self.stats.truncation_events += 1
+            if segments:
+                self._live_last_segment_id = self._segment_id_for_offset(
+                    self.log_paths.current_log,
+                    segments[-1].source_offset,
+                )
+            upsert_checkpoint(
+                self.db_path,
+                self.log_paths.current_log,
+                self._live_state.offset,
+                self._live_last_segment_id,
+            )
+            return inserted
+        finally:
+            self._live_tail_active = False
 
     def clear_replay_checkpoint(self) -> None:
         delete_checkpoint(self.db_path, self.log_paths.previous_log)
+
+    def is_live_tail_active(self) -> bool:
+        return self._live_tail_active
 
     def _segment_id_for_offset(self, source_file: Path, source_offset: int) -> int | None:
         import sqlite3
