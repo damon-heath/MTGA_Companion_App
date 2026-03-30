@@ -54,7 +54,14 @@ function Resolve-TimestampArguments {
     [string]$Url
   )
 
-  $help = & $SignToolPath sign /? 2>&1 | Out-String
+  $nativePref = $PSNativeCommandUseErrorActionPreference
+  $PSNativeCommandUseErrorActionPreference = $false
+  try {
+    $help = & $SignToolPath sign /? 2>&1 | Out-String
+    $null = $LASTEXITCODE
+  } finally {
+    $PSNativeCommandUseErrorActionPreference = $nativePref
+  }
   if ($help -match '(?i)\s/tr\s') {
     return @("/tr", $Url, "/td", "SHA256")
   }
