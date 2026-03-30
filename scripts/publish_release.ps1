@@ -11,6 +11,10 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 
 $tag = "v$Version"
 
+if (git rev-parse --verify --quiet $tag) {
+  throw "Tag '$tag' already exists."
+}
+
 git tag -a $tag -m "Release $tag"
 git push origin $tag
 
@@ -21,4 +25,5 @@ Get-ChildItem -Path $artifactPath -File | ForEach-Object {
   "{0}  {1}" -f $hash.Hash.ToLower(), $_.Name
 } | Set-Content -LiteralPath $checksumsPath
 
-gh release create $tag --title "Arena Companion $tag" --notes-file docs/release-notes.md "$artifactPath\\*"
+$artifactFiles = Get-ChildItem -Path $artifactPath -File | ForEach-Object { $_.FullName }
+gh release create $tag --title "Arena Companion $tag" --notes-file docs/release-notes.md @artifactFiles

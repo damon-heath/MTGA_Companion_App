@@ -5,3 +5,6 @@ dist/
 ArenaCompanionOneFile.spec
 build/arena_companion/
 build/ArenaCompanionOneFile/
+build/installer/dist/
+artifacts/
+tools/

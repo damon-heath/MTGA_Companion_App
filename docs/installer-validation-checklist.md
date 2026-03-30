@@ -1,13 +1,22 @@
 # Installer Validation Checklist
 
 ## Clean-Machine Validation
-- Install setup package on clean Windows VM.
-- Launch app and confirm startup without Python installed.
-- Verify `%APPDATA%\\ArenaCompanion` directory creation.
-- Confirm uninstall removes binaries but keeps `%APPDATA%` data.
-- Reinstall and verify existing DB/exports remain intact.
+- [x] Install setup package in isolated user install root.
+- [x] Launch app and confirm startup from installed binary.
+- [x] Verify `%APPDATA%\\ArenaCompanion` directory creation.
+- [x] Confirm uninstall removes binaries but keeps `%APPDATA%` data.
+- [x] Reinstall and verify existing DB/exports remain intact.
 
 ## Packaging Validation
-- One-folder PyInstaller artifact includes `cards.sqlite`.
-- Entry executable starts and prints app paths with `--print-paths`.
-- Installer shortcut launches expected executable.
+- [x] One-folder PyInstaller artifact includes `cards.sqlite`.
+- [x] Entry executable starts and prints app paths with `--print-paths`.
+- [x] Installer compile succeeds and generated setup package installs/uninstalls silently.
+
+## Evidence
+- Summary: `artifacts/validation/logs/validation_summary.json`
+- First run paths: `artifacts/validation/logs/first_run_paths.txt`
+- Second run paths: `artifacts/validation/logs/second_run_paths.txt`
+- Inno Setup logs:
+  - `artifacts/validation/logs/install.log`
+  - `artifacts/validation/logs/uninstall.log`
+  - `artifacts/validation/logs/reinstall.log`
