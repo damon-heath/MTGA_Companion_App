@@ -1,0 +1,24 @@
+{
+  "migrate_ms": 7.86,
+  "seed_ms": 85.59,
+  "ingest_insert_25000_ms": 41.72,
+  "ingest_rows_per_second": 599301.93,
+  "query_timings_ms": {
+    "recent_matches": 0.191,
+    "lookup_match_id": 0.045,
+    "deck_performance": 2.888
+  },
+  "query_plans": {
+    "recent_matches": [
+      "SCAN matches USING INDEX idx_matches_started_at"
+    ],
+    "lookup_match_id": [
+      "SEARCH matches USING COVERING INDEX idx_matches_match_id (match_id=?)"
+    ],
+    "deck_performance": [
+      "SCAN matches USING INDEX idx_matches_deck_version_id",
+      "USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "signature": "bed284cf4ff03d21c0542c007b20c795705b99def686800b28d911e61169a415"
+}
