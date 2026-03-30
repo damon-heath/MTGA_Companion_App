@@ -5,7 +5,7 @@ param(
   [string]$PfxPath,
   [Parameter(Mandatory = $true)]
   [string]$PfxPassword,
-  [string]$TimestampUrl = "http://timestamp.digicert.com"
+  [string]$TimestampUrl = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,7 +57,11 @@ foreach ($artifact in $ArtifactPaths) {
     throw "Artifact not found for signing: $artifact"
   }
 
-  & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword /t $TimestampUrl $artifact
+  if ($TimestampUrl) {
+    & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword /t $TimestampUrl $artifact
+  } else {
+    & $signtool sign /fd SHA256 /f $PfxPath /p $PfxPassword $artifact
+  }
   if ($LASTEXITCODE -ne 0) {
     throw "signtool sign failed for '$artifact' with exit code $LASTEXITCODE"
   }
