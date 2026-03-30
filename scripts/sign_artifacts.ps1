@@ -66,10 +66,11 @@ foreach ($artifact in $ArtifactPaths) {
     throw "signtool sign failed for '$artifact' with exit code $LASTEXITCODE"
   }
 
-  & $signtool verify /pa $artifact
-  if ($LASTEXITCODE -ne 0) {
-    throw "signtool verify failed for '$artifact' with exit code $LASTEXITCODE"
+  $signature = Get-AuthenticodeSignature -FilePath $artifact
+  if ($signature.Status -ne "Valid") {
+    throw "Authenticode verification failed for '$artifact' with status '$($signature.Status)'."
   }
+  Write-Host "Verified signature for '$artifact' with signer '$($signature.SignerCertificate.Subject)'."
 }
 
 Write-Host "Signing completed for $($ArtifactPaths.Count) artifact(s)."
