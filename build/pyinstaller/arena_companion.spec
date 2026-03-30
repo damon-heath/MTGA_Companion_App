@@ -2,12 +2,20 @@
 
 block_cipher = None
 
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(SPECPATH).resolve().parents[1]
+SRC_ROOT = PROJECT_ROOT / "src"
+MAIN_SCRIPT = SRC_ROOT / "arena_companion" / "main.py"
+CARDS_DB = SRC_ROOT / "arena_companion" / "assets" / "cards.sqlite"
+
 
 a = Analysis(
-    ['src/arena_companion/main.py'],
-    pathex=['src'],
+    [str(MAIN_SCRIPT)],
+    pathex=[str(SRC_ROOT)],
     binaries=[],
-    datas=[('src/arena_companion/assets/cards.sqlite', 'arena_companion/assets')],
+    datas=[(str(CARDS_DB), 'arena_companion/assets')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

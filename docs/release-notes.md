@@ -8,6 +8,7 @@
 ## Known Limits
 - Collection module is conditional on spike evidence.
 - Windows-only support in 1.0.0.
+- Packaging mode for 1.0.0 is one-folder (see `docs/packaging-mode-decision.md`).
 
 ## Disclaimer
 This is unofficial fan-made software and is not affiliated with Wizards of the Coast.
